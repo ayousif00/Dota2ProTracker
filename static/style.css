@@ -1,0 +1,84 @@
+
+* {
+    font-family: Arial;
+}
+
+.match {
+    background: #333;
+    float : left;
+    margin:10px;
+    padding: 5px;
+    width:400px;
+    height:300px;
+}
+
+.mmr {
+    font-size: 24px;
+    text-align: center;
+    color:#FFF;
+}
+.mmr a {
+    color: #c90e17;
+    text-decoration: none;
+}
+
+.radiant {
+    width: 50%;
+    float: left;
+}
+.dire {
+    width:50%;
+    float:right;
+}
+
+.player {
+    #width:300px;
+    height: 50px;
+    #background:#DDD;
+
+}
+
+.match img {
+
+}
+
+.time {
+    text-align: center;
+    color: #ccc;
+    font-size: 70%;
+}
+.radiant > .player img {
+    float:left;
+    margin-right: 5px;
+}
+.dire > .player img{
+    float:right;
+    margin-left: 5px;
+
+}
+.dire .playername {
+    text-align: right;
+}
+.dire .heroname {
+    text-align: right;
+}
+
+.playername {
+    color: #FFF;
+    font-size: 80%;
+}
+.heroname {
+    color: #CCC;
+    font-size: 60%;
+}
+
+.player .special {
+    color:#6bc5e5;
+    font-weight: bold;
+}
+
+.playername a {
+    color:#6bc5e5;
+    text-decoration: none;
+    font-weight: bold;
+}

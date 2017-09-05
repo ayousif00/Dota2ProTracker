@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+</head>
+<body>
+
+{% for game in games %}
+<div class = 'match'>
+    <div class = "mmr">
+        {% if game.match_id != None %}
+            <a href="https://www.dotabuff.com/matches/{{game.match_id}}">
+                {{game.mmr}}
+            </a>
+        {% else %}
+            {{game.mmr}}
+        {% endif %}
+    </div>
+    <div class = 'time'>{{game.activate_time}}</div>
+    <div class = "radiant">
+        {% for player in game.radiant %}
+        <div class = "player">
+            <img src="{{player.hero_img_url}}" width="59" height="33"/>
+            {% if player.is_pro %}
+                <div class="playername special">
+                    <a href="/player/{{player.name}}">
+                        {{player.name}}
+                    </a>
+                </div>
+            {% else %}
+                <div class="playername">{{player.name}}</div>
+            {% endif %}
+            <div class="heroname">{{player.hero}}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class = "dire">
+        {% for player in game.dire %}
+        <div class = "player">
+            <img src="{{player.hero_img_url}}" width="59" height="33" />
+            {% if player.is_pro %}
+                <div class="playername special">
+                    <a href="/player/{{player.name}}">
+                        {{player.name}}
+                    </a>
+                </div>
+            {% else %}
+                <div class="playername">{{player.name}}</div>
+            {% endif %}
+            <div class="heroname">{{player.hero}}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endfor %}
+
+</body>
+</html>

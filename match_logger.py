@@ -58,7 +58,11 @@ def load(name):
 
 
 def ten_heros_picked(game):
-    heroes = [player['hero_id'] for player in game['players']]
+    try:
+        heroes = [player['hero_id'] for player in game['players']]
+    except:
+        return False
+
     if len(set(heroes)) < 10:
         return False
 
@@ -72,7 +76,7 @@ def ten_heros_picked(game):
 
 #ids = {str(v): k for k, v in identities.items()}
 
-t_wait = 10
+t_wait = 60
 
 while True:
 

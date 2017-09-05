@@ -74,7 +74,7 @@ def matches():
 @app.route('/player/<pname>')
 def player(pname):
     account_id = Identity.query.filter_by(identity = pname).first().account_id
-    matches = Game.query.filter(Game.players.contains(str(account_id))).all()
+    matches = Game.query.filter(Game.players.contains(str(account_id))).order_by(Game.activate_time.desc()).all()
     processed_matches = [get_match_from_db(match) for match in matches]
 
     return render_template('index.html', games = processed_matches, title='{}\'s matches'.format(pname))

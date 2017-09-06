@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style2.css') }}">
+    <meta charset="UTF-8">
+    <title>{{ meta.title }}</title>
+</head>
+<body>
+
+<div id = 'container'>
+
+    <div id="header">
+    Dota2ProTracker
+    </div>
+
+    <div id = "left">
+
+        <div class="hl">Live games with pros</div>
+
+        {% for match in live %}
+        <div class="live_game">
+
+            <div class="live_game_stat_block">
+                 <div class="left_line"></div>
+                 <div class="live_game_mmr">{{ match.average_mmr }} avg MMR</div>
+                 <div class="live_game_stats">{{ match.game_time }} / {{ match.radiant_score }} - {{ match.dire_score }}</div>
+                <div class="right_line"></div>
+            </div>
+            <div class="live_game_pros">
+
+                {% for pro in match.pros_in_game %}
+                    <div class="live_game_pro">
+{#                        <img src="{{ pro.hero_img_url }}" width="66" height="76"/>#}
+                        <img src="{{ pro.hero_img_url }}" />
+                        <a href="/player/{{ pro.identity }}">{{ pro.identity }}</a> {{ pro.hero_name }} <br/>
+                        {{ pro.kills }}/{{ pro.deaths }}/{{ pro.assists }} <br/>
+                        Level {{ pro.level }}
+                    </div>
+                {% endfor %}
+
+            </div>
+
+        </div>
+        {% endfor %}
+
+        <div class="offline_pros">
+            <div class="hl">Offline</div>
+            {% for pro in offline %}
+                <div class="offline_pro">
+                    <a href="/player/{{ pro.identity }}" >{{ pro.identity }}</a>
+                    <a href="https://www.dotabuff.com/players/{{pro.account_id}}"><img src="/static/images/dotabuff_grey.png" alt="Dotabuff" /></a>
+                    <a href="https://www.opendota.com/players/{{pro.account_id}}"><img src="/static/images/opendota_grey.png" alt="Opendota" /></a>
+                </div>
+            {% endfor %}
+        </div>
+
+
+
+    </div>
+
+    <div id= "right">
+
+        <div class="hl">{{ meta.right_hl }}</div>
+
+        {% for game in matches %}
+        <div class = 'recent_match'>
+            <div class = "recent_game_mmr">{{  game.mmr }} <span>avg MMR</span></div>
+            <div class = 'recent_game_time'>{{game.activate_time}}</div>
+            <div class = 'external_links'>
+                <a href="https://www.dotabuff.com/matches/{{game.match_id}}"><img src="/static/images/dotabuff.png" alt="Dotabuff" width="16" height="16" /></a>
+                <a href="https://www.opendota.com/matches/{{game.match_id}}"><img src="/static/images/opendota.png" alt="Opendota" width="16" height="16" /></a>
+            </div>
+
+            <div class = "recent_game_radiant">
+                <div class="radiant_headline">
+                    Radiant
+                </div>
+
+                {% for player in game.radiant %}
+                <div class = "recent_game_player">
+                    <img src="{{player.hero_img_url}}"/>
+                    {% if player.is_pro %}
+                        <div class="recent_game_playername special">
+                            <a href="/player/{{player.name}}">
+                                {{player.name}}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="recent_game_playername">{{player.name|truncate(10, True, '...', 0) }}</div>
+                    {% endif %}
+                    <div class="recent_game_heroname">{{player.hero}}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class = "recent_game_dire">
+                <div class="dire_headline">
+                    Dire
+                </div>
+
+                {% for player in game.dire %}
+                <div class = "recent_game_player">
+                    <img src="{{player.hero_img_url}}"/>
+                    {% if player.is_pro %}
+                        <div class="recent_game_playername special">
+                            <a href="/player/{{player.name}}">
+                                {{player.name}}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="recent_game_playername">{{player.name|truncate(10, True, '...', 0)}}</div>
+                    {% endif %}
+                    <div class="recent_game_heroname">{{player.hero}}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+        {% endfor %}
+
+
+    </div>
+
+    <div id="footer">
+
+
+    </div>
+
+</div>
+
+
+
+</body>
+</html>

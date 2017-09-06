@@ -1,10 +1,14 @@
 
+body {
+    background:#000;
+}
+
 * {
-    font-family: Arial;
+    font-family: 'Lucida Sans Unicode';
 }
 
 .match {
-    background: #333;
+    background: #101413;
     float : left;
     margin:10px;
     padding: 5px;
@@ -44,7 +48,7 @@
 
 .time {
     text-align: center;
-    color: #ccc;
+    color: #758D8C;
     font-size: 70%;
 }
 .radiant > .player img {
@@ -64,11 +68,11 @@
 }
 
 .playername {
-    color: #FFF;
+    color: #F2F2F2;
     font-size: 80%;
 }
 .heroname {
-    color: #CCC;
+    color: #758D8C;
     font-size: 60%;
 }
 

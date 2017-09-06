@@ -1,6 +1,12 @@
 from flask import Flask, render_template
 from models import app, DB, Game, Hero, Identity, Player
 import datetime
+import dota2api
+from config import API_KEY, HOST
+import pprint
+api = dota2api.Initialise(API_KEY)
+import urllib
+import json
 
 #app = Flask(__name__)
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://{}'.format(DB)
@@ -27,7 +33,7 @@ def get_match_from_db(match):
 
         try:
             hero_result = Hero.query.filter_by(hero_id = hero_id).first()
-            hero_name, hero_img = hero_result.localized_name, hero_result.url_small_portrait
+            hero_name, hero_img = hero_result.localized_name, hero_result.url_large_portrait
         except:
             # ToDo: make this better
             hero_name = 'Hero 0'
@@ -49,6 +55,7 @@ def get_match_from_db(match):
             'is_pro': is_pro,
             'hero' : hero_name,
             'account_id': account_id,
+            # 'hero_img_url': hero_img.replace('_sb.png', '_vert.jpg')
             'hero_img_url': hero_img
         }
         if i < 5:
@@ -63,29 +70,142 @@ def get_match_from_db(match):
 
 
 
+def get_match_live_stats(steamid):
+    url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
+    attempts = 0
+    while attempts < 3:
+        try:
+            data = urllib.request.urlopen(url).read().decode()
+            data = json.loads(data)
+            return data
+        except:
+            #logger.warning('Failed attempt #{} to get match id from server_steam_id {}'.format(attempts+1, steamid))
+            attempts += 1
+            #time.sleep(1)
+    return None
 
-@app.route('/matches')
-def matches():
-    matches = Game.query.order_by(Game.activate_time.desc()).limit(20).all()
-    processed_matches = [get_match_from_db(match) for match in matches]
 
-    return render_template('index.html', games = processed_matches, title='Matches')
+def get_live_pro_games():
+    top_live_games = api.get_top_live_games()
+    identity_ids = [identity.account_id for identity in Identity.query.all()]
+
+    try:
+        game_list = top_live_games['game_list']
+    except:
+        return [], identity_ids
+
+
+    show_games = []
+
+    for game in game_list:
+        player_ids = [p['account_id'] for p in game['players']]
+        if not set(player_ids).isdisjoint(identity_ids):
+
+            show_games.append(game)
+
+    for i, match in enumerate(show_games):
+        server_steam_id = match['server_steam_id']
+        live_stats = get_match_live_stats(server_steam_id)
+        if live_stats is None:
+            continue
+
+        player_ids = [p['account_id'] for p in match['players']]
+        pros_in_game = set(player_ids) & set(identity_ids)
+        pros = []
+        for pro in pros_in_game:
+            name = Identity.query.filter_by(account_id = pro).first().identity
+            identity_ids.remove(pro)
+            for team in live_stats['teams']:
+                for player in team['players']:
+                    if player['accountid'] == int(pro):
+
+                        try:
+                            hero_name = Hero.query.filter_by(hero_id = player['heroid']).first().localized_name
+                        except:
+                            hero_name = 'Not picked'
+
+                        try:
+                            hero_img_url = Hero.query.filter_by(hero_id=player['heroid']).first().url_small_portrait.replace('_sb.png', '_vert.jpg')
+                        except:
+                            hero_img_url = '/static/images/hero_0.png'
+
+                        pros.append(
+                            {
+                                'account_id' : pro,
+                                'identity' : name,
+                                'kills' : player['kill_count'],
+                                'deaths' : player['death_count'],
+                                'assists' : player['assists_count'],
+                                'level' : player['level'],
+                                'hero_name' : hero_name,
+                                'hero_img_url': hero_img_url
+                            }
+                        )
+
+        t = match['game_time']
+        m, s = divmod(t, 60)
+        if m > 59:
+            h, m = divmod(m, 60)
+            match['game_time'] = "%d:%02d:%02d" % (h, m, s)
+        else:
+            match['game_time'] = "%02d:%02d" % (m, s)
+        match['pros_in_game'] = pros
+        show_games[i] = match
+
+    offline = []
+    for pro in identity_ids:
+        offline.append(
+            {
+                'account_id' : pro,
+                'identity' :  Identity.query.filter_by(account_id = pro).first().identity
+            }
+        )
+    # pprint.pprint(show_games)
+
+    offline = sorted(offline, key=lambda pro: pro['identity'])
+
+    return show_games, offline
+
+# @app.route('/matches')
+# def matches():
+#     matches = Game.query.order_by(Game.activate_time.desc()).limit(20).all()
+#     processed_matches = [get_match_from_db(match) for match in matches]
+#
+#     return render_template('index.html', games = processed_matches, title='Matches')
 
 @app.route('/player/<pname>')
 def player(pname):
+    live_games, offline = get_live_pro_games()
     account_id = Identity.query.filter_by(identity = pname).first().account_id
     matches = Game.query.filter(Game.players.contains(str(account_id))).order_by(Game.activate_time.desc()).all()
     processed_matches = [get_match_from_db(match) for match in matches]
 
-    return render_template('index.html', games = processed_matches, title='{}\'s matches'.format(pname))
+    meta = {
+        'title' : "{}'s recent matches".format(pname),
+        'right_hl' : "{}'s recent matches".format(pname)
+    }
 
-@app.route('/pros/<num>')
-def pros(num):
-    matches = Game.query.order_by(Game.activate_time.desc()).all()
+    return render_template('ui.html', offline=offline, live=live_games, matches=processed_matches, meta = meta)
+
+# @app.route('/pros/<num>')
+# def pros(num):
+#     matches = Game.query.order_by(Game.activate_time.desc()).all()
+#     processed_matches = [get_match_from_db(match) for match in matches]
+#     processed_matches = [b for b in processed_matches if b['pros_count'] >= int(num)]
+#     return render_template('index.html', games = processed_matches, title='Pros')
+
+@app.route('/')
+def live():
+    live_games, offline = get_live_pro_games()
+    matches = Game.query.order_by(Game.activate_time.desc()).limit(20).all()
     processed_matches = [get_match_from_db(match) for match in matches]
-    processed_matches = [b for b in processed_matches if b['pros_count'] >= int(num)]
-    return render_template('index.html', games = processed_matches, title='Pros')
 
+    meta = {
+        'title' : "Dota2ProTracker",
+        'right_hl' : "Recent & Ongoing High MMR Pub Games"
+    }
+
+    return render_template('ui.html', meta=meta, offline = offline, live = live_games, matches = processed_matches)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host = HOST, threaded = True)

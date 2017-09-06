@@ -1,0 +1,220 @@
+body{
+    background:#000;
+    color:#738C8C;
+    font-family: "Lucida Sans Unicode";
+}
+
+#container {
+    height: auto;
+    overflow: hidden;
+}
+
+#header {
+    height:100px;
+}
+ /* LIVE GAMES CSS */
+/*#######################*/
+#left {
+    float:left;
+    width: 320px;
+    min-height:1000px;
+    border-right:1px solid #4B5A5A;
+    /*overflow-y:scroll;*/
+}
+
+.live_game {
+    font-size: 12px;
+    margin-left: 20px;
+    padding-left: 10px;
+    /*border-bottom:1px solid #4B5A5A;*/
+    /*padding-bottom:20px;*/
+    /*margin-bottom:15px;*/
+    border-left:2px solid #1A2020;
+    /*background:#101413;*/
+}
+
+.live_game_mmr {
+    color:#F2F2F2;
+    text-align: center;
+    font-size: 17px;
+    line-height:18px;
+}
+
+.live_game_stats {
+    text-align: center;
+    font-size: 12px;
+    margin-bottom:10px;
+}
+
+.live_game_pro {
+    /*background: #CCC;*/
+    margin-bottom: 10px;
+    height:60px;
+    /*padding:10px;*/
+    line-height:18px;
+}
+
+.live_game_pro a {
+    color:#F2F2F2;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.live_game_pro img{
+    float:left;
+    height:55px;
+    /*width: 66px;*/
+    margin-right: 10px;
+}
+
+.offline_pros {
+    margin-top:50px;
+}
+
+.offline_pro {
+    margin-left:17px;
+    clear:both;
+}
+.offline_pro a {
+    display:block;
+    float:left;
+    color:#758D8C;
+    text-decoration: none;
+    font-size: 14px;
+    margin: 5px 5px;
+    line-height:16px;
+
+}
+.offline_pro a img {
+    height:16px;
+    width: 16px;
+}
+
+
+/*Recent games CSS*/
+
+.hl {
+    color:#738C8C;
+    text-transform: uppercase;
+    font-size:20px;
+    margin-left:20px;
+    margin-bottom:20px;
+}
+
+#right {
+    /*float:right;*/
+    width: auto;
+    overflow: hidden;
+    min-height:1000px;
+    /*border-left:1px solid #4B5A5A;*/
+}
+
+.recent_match {
+    background: #101413;
+    float : left;
+    margin:10px;
+    padding: 10px;
+    width:350px;
+    /*height:300px;*/
+}
+
+.recent_game_mmr {
+    font-size: 24px;
+    text-align: center;
+    color:#F2F2F2;
+    line-height:19px;
+}
+.recent_game_mmr span {
+    font-size: 15px;
+}
+
+.recent_game_radiant {
+    width: 50%;
+    float: left;
+}
+.recent_game_dire {
+    width:50%;
+    float:right;
+}
+
+.recent_game_player {
+    #width:300px;
+    height: 50px;
+    #background:#DDD;
+}
+
+.recent_game_time {
+    text-align: center;
+    color: #758D8C;
+    font-size: 70%;
+}
+.recent_game_radiant .recent_game_player img {
+    float:left;
+    margin-right: 5px;
+    height:40px;
+}
+.recent_game_dire .recent_game_player img{
+    float:right;
+    margin-left: 5px;
+    height:40px;
+
+}
+.recent_game_dire .recent_game_playername {
+    text-align: right;
+}
+.recent_game_dire .recent_game_heroname {
+    text-align: right;
+}
+
+.recent_game_playername {
+    color: #F2F2F2;
+    font-size: 13px;
+}
+.recent_game_heroname {
+    color: #758D8C;
+    font-size: 10px;
+}
+
+.recent_game_player .special {
+    color:#6bc5e5;
+    font-weight: bold;
+}
+
+.recent_game_playername a {
+    color:#6bc5e5;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.external_links {
+    text-align: center;
+}
+.external_links img{
+    height:16px;
+    width:16px;
+}
+
+.radiant_headline {
+    text-transform: uppercase;
+    text-align: left;
+    color:#758D8C;
+    font-size: 12px;
+    border-bottom: 1px solid #364140;
+    margin-bottom: 10px;
+    width:90%;
+}
+.dire_headline {
+    text-transform: uppercase;
+    text-align: right;
+    color:#758D8C;
+    font-size: 12px;
+    border-bottom: 1px solid #364140;
+    margin-bottom: 10px;
+    width:90%;
+    margin-left:10%;
+}
+
+#footer {
+    clear:both;
+    height:100px;
+}

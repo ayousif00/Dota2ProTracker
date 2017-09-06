@@ -107,6 +107,7 @@ while True:
 
         if match_id is None:
             logger.warning('{} : No match id found for server_steam_id {}'.format(lobby_id, server_steam_id))
+            match_id = 0
         else:
             logger.info('{} : Found match id: {}'.format(lobby_id, match_id))
 

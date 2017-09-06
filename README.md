@@ -5,7 +5,7 @@ Python project that uses the public steam web api for Dota 2 to log high MMR gam
 
 ## Requirements
 
-- dota2api (pip install dota2pi)
+- dota2api (pip install dota2api)
 - Flask
 - SQLAlchemy
 - Flask-SQLAlchemy

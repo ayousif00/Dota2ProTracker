@@ -4,3 +4,4 @@ __pycache__
 db
 db/*
 json
+json_to_db.py

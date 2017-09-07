@@ -7,3 +7,4 @@ db\database.db
 json
 json_to_db.py
 todo.txt
+cached_livegames.json

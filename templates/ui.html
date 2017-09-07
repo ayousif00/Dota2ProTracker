@@ -24,21 +24,21 @@
             <div class="live_game">
 
                 <div class="live_game_stat_block">
-                     <div class="left_line"></div>
-                     <div class="live_game_mmr">{{ match.average_mmr }} avg MMR</div>
-                     <div class="live_game_stats">{{ match.game_time }} / {{ match.radiant_score }} - {{ match.dire_score }}</div>
-                    <div class="right_line"></div>
+                     <div class="live_game_mmr">{{ match.match.average_mmr }} avg MMR</div>
+                     <div class="live_game_stats">{{ match.match.game_time }} / {{ match.match.radiant_score }} - {{ match.match.dire_score }}</div>
                 </div>
                 <div class="live_game_pros">
 
-                    {% for pro in match.pros_in_game %}
-                        <div class="live_game_pro">
-    {#                        <img src="{{ pro.hero_img_url }}" width="66" height="76"/>#}
-                            <img src="{{ pro.hero_img_url }}" />
-                            <a href="/player/{{ pro.identity }}">{{ pro.identity }}</a> {{ pro.hero_name }} <br/>
-                            {{ pro.kills }}/{{ pro.deaths }}/{{ pro.assists }} <br/>
-                            Level {{ pro.level }}
-                        </div>
+                    {% for player in match.match.players %}
+                        {% if player.is_pro %}
+                            <div class="live_game_pro">
+                {#                        <img src="{{ pro.hero_img_url }}" width="66" height="76"/>#}
+                                <img src="{{ player.player.hero_img_url }}" />
+                                <a href="/player/{{ player.player.identity }}">{{ player.player.identity }}</a> {{ player.player.hero_name }} <br/>
+                                {{ player.player.kills }}/{{ player.player.deaths }}/{{ player.player.assists }} <br/>
+                                Level {{ player.player.level }}
+                            </div>
+                        {% endif %}
                     {% endfor %}
 
                 </div>

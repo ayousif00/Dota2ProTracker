@@ -185,12 +185,14 @@ body{
 }
 
 .recent_game_player .special {
-    color:#6bc5e5;
+    /*color:#6bc5e5;*/
+    color:#E5716A;
     font-weight: bold;
 }
 
 .recent_game_playername a {
-    color:#6bc5e5;
+    /*color:#6bc5e5;*/
+    color:#E5716A;
     text-decoration: none;
     font-weight: bold;
 }

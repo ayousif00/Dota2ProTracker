@@ -200,16 +200,37 @@ def get_live_pro_games():
                 'identity' :  Identity.query.filter_by(account_id = pro).first().identity
             }
         )
+    offline = sorted(offline, key=lambda pro: pro['identity'])
+
     # pprint.pprint(show_games)
 
-    offline = sorted(offline, key=lambda pro: pro['identity'])
 
     return show_games, offline
 
 
+def get_offline_players(live_games):
+    offline = []
+    identity_ids = [identity.account_id for identity in Identity.query.all()]
+
+    for match in live_games:
+        players = match['match']['players']
+        for player in players:
+            if player['is_pro']:
+                identity_ids.remove(player['player']['account_id'])
+
+    for pro in identity_ids:
+        offline.append(
+            {
+                'account_id' : pro,
+                'identity' :  Identity.query.filter_by(account_id = pro).first().identity
+            }
+        )
+    offline = sorted(offline, key=lambda pro: pro['identity'])
+    return offline
+
 @app.route('/player/<pname>')
 def player(pname):
-    live_games, offline = get_live_pro_games()
+    # live_games, offline = get_live_pro_games()
     account_id = Identity.query.filter_by(identity = pname).first().account_id
     matches = Game.query.filter(Game.players.contains(str(account_id))).order_by(Game.activate_time.desc()).all()
     processed_matches = [get_match_from_db(match) for match in matches]
@@ -219,11 +240,16 @@ def player(pname):
         'right_hl' : "{}'s recent matches".format(pname)
     }
 
+    with open("cached_livegames.json", "r") as fh:
+        live_games = json.load(fh)
+
+    offline = get_offline_players(live_games)
+
     return render_template('ui.html', offline=offline, live=live_games, matches=processed_matches, meta = meta)
 
 @app.route('/')
 def live():
-    live_games, offline = get_live_pro_games()
+    #live_games, offline = get_live_pro_games()
     matches = Game.query.order_by(Game.activate_time.desc()).limit(20).all()
     processed_matches = [get_match_from_db(match) for match in matches]
 
@@ -232,7 +258,14 @@ def live():
         'right_hl' : "Recent & Ongoing High MMR Pub Games"
     }
 
+    with open("cached_livegames.json", "r") as fh:
+        live_games = json.load(fh)
+
+    offline = get_offline_players(live_games)
+
     return render_template('ui.html', meta=meta, offline = offline, live = live_games, matches = processed_matches)
+
+    # return render_template('ui.html', meta=meta, offline = offline, live = live_games, matches = processed_matches)
     # return render_template('ui.html', meta=meta, offline = offline, live = [], matches = processed_matches)
 
 if __name__ == '__main__':

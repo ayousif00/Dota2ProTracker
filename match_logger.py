@@ -7,6 +7,7 @@ from config import API_KEY, DB
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Hero, Player, Identity, Game
+from jinja2 import Environment, FileSystemLoader
 
 FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(format = FORMAT, level=logging.INFO)
@@ -103,7 +104,83 @@ def ten_heros_picked(api_game):
 
 #ids = {str(v): k for k, v in identities.items()}
 
-t_wait = 60
+t_wait = 30
+
+def get_match_live_stats(steamid, max_attempts = 3, sleep = 0):
+    '''
+    Use server_steam_id to get realtime stats for the sidebar.
+
+    Sometimes this fails on the first try so we give it 3 attempts.
+    '''
+    if steamid is None:
+        return None
+
+
+    # print ('Calling get_match_live_stats')
+    url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
+    attempts = 0
+    while attempts < max_attempts:
+        try:
+            data = urllib.request.urlopen(url).read().decode()
+            data = json.loads(data)
+            return data
+        except:
+            #logger.warning('Failed attempt #{} to get match id from server_steam_id {}'.format(attempts+1, steamid))
+            attempts += 1
+            time.sleep(sleep)
+    return None
+
+def get_pro_stats_from_live_game(live_stats, account_id):
+    p = {
+       'kills' : 0,
+        'deaths' : 0,
+        'assists' : 0,
+        'level' : 0,
+    }
+    try:
+        teams = live_stats.get('teams', [])
+        for team in teams:
+            players = team.get('players', [])
+            for player in players:
+                if player['accountid'] == account_id:
+                    hero_id = player.get('heroid', 0)
+                    if hero_id != 0:
+                        hero = Hero.query.filter_by(hero_id = hero_id).first()
+                        hero_name = hero.localized_name
+                        hero_img_url = hero.url_small_portrait.replace('_sb.png', '_vert.jpg')
+                    else:
+                        hero_name = 'Not picked'
+                        hero_img_url = '/static/images/hero_0.png'
+
+                    p['kills'] = player.get('kill_count', 0)
+                    p['deaths'] = player.get('death_count', 0)
+                    p['assists'] = player.get('assists_count', 0)
+                    p['level'] = player.get('level', 0)
+                    p['hero_name'] = hero_name
+                    p['hero_img_url'] = hero_img_url
+                    return p
+    except:
+        return None
+
+
+
+def pros_in_match(match, identity_ids):
+    # print (match)
+    players = match.get('players', [])
+    account_ids = [p['account_id'] for p in players]
+    # print (players)
+    pro_account_ids = set(account_ids) & set(identity_ids)
+    return pro_account_ids
+
+def formatted_game_time(game_time):
+    assert type(game_time) is int
+    m, s = divmod(game_time, 60)
+    if m > 59:
+        h, m = divmod(m, 60)
+        fgt = "%d:%02d:%02d" % (h, m, s)
+    else:
+        fgt = "%02d:%02d" % (m, s)
+    return fgt
 
 def parse_api_game(api_game, continue_if_db = True):
 
@@ -114,10 +191,14 @@ def parse_api_game(api_game, continue_if_db = True):
     server_steam_id  = api_game.get('server_steam_id')
     players = api_game.get('players', [])
     hero_ids = [player.get('hero_id', 0) for player in players]
+    has_pros = False
+    identity_ids = [identity.account_id for identity in Identity.query.all()]
 
     match = {
         'is_in_db' : False,
+        'has_pros' : False,
         'number_heroes_picked' : number_heroes_picked(api_game),
+        'live_stats' : None, # ToDo: don't keep this, throw it out later
         'match' : {
             'average_mmr' : api_game.get('average_mmr', 0),
             'server_steam_id': server_steam_id,
@@ -126,37 +207,88 @@ def parse_api_game(api_game, continue_if_db = True):
             'activate_time' : api_game.get('activate_time', 0),
             'players' : [],
             'heroes' : [],
+            'radiant_score' : api_game.get('radiant_score', 0),
+            'dire_score' : api_game.get('dire_score', 0),
+            'game_time' : formatted_game_time(api_game.get('game_time', 0))
         }
 
     }
 
-    # Use lobby_id to check if game is already in the database
+    # Quick check if game has pros
+    pro_account_ids = pros_in_match(api_game, identity_ids)
+    # print (pro_account_ids)
+    has_pros = len(pro_account_ids) > 0
+
+    match['has_pros'] = has_pros
+
+    # Use lobby_id to check if game is already in the database.
+    # If the game is already in the database we only continue
+    # if continue_if_db == True or there is a pro in the game.
     if Game.query.filter_by(lobby_id=lobby_id).first() is not None:
         match['is_in_db'] = True
-        if not continue_if_db:
+        if not continue_if_db and not has_pros:
             return match
 
     match['match']['match_id'] = get_match_id(server_steam_id, 3, 0)
+
     # Check for players whether they are in the database or not
 
     if players is not None:
         for player in players:
+            is_pro = False
+            identity = None
+            player_live_stats = None
             account_id = player.get('account_id')
+
+            #####
+            if account_id in pro_account_ids:
+                # player is a pro
+                #match['has_pros'] = True
+                is_pro = True
+                identity = Identity.query.filter_by(account_id = account_id).first().identity
+                # ToDo: Cache identities before loop
+
+                # in case of multiple in the same match we might have tried to get live stats alrdy
+                if match['live_stats'] is None:
+                    live_stats = get_match_live_stats(server_steam_id)
+                    match['live_stats'] = live_stats
+                else:
+                    live_stats = match['live_stats']
+
+                player_live_stats = get_pro_stats_from_live_game(live_stats, account_id)
+                # print (player_live_stats)
+                # ToDo: instead of doing this for every player, do it once and use results here
+                # because we have nested loops in get_pro_stats_...
+            #####
+
             hero_id = player.get('hero_id', 0)
-            player_name, player_steam_id = get_player_info(account_id)
+
+            player_db = Player.query.filter_by(account_id=account_id).first()
+            if player_db is not None:
+                is_in_db = True
+                player_name = player_db.name
+                player_steam_id = player_db.steam_id
+            else:
+                is_in_db = False
+                player_name, player_steam_id = get_player_info(account_id)
             p = {
-                'is_in_db' : False,
+                'is_in_db' : is_in_db,
+                'is_pro' : is_pro,
                 'player' : {
                     'name': player_name,
                     'account_id': account_id,
                     'steam_id': player_steam_id,
                     'hero_id' : hero_id,
+                    'identity': identity,
                 }
             }
-            if Player.query.filter_by(account_id=account_id).first() is not None:
-                p['is_in_db'] = True
+            if player_live_stats is not None:
+                p['player'].update(player_live_stats)
 
             match['match']['players'].append(p)
+
+
+    match['live_stats'] = None
 
     return match
 
@@ -170,6 +302,8 @@ while True:
         time.sleep(5)
         continue
 
+    livegames = []
+
     for api_game in api_games:
 
         match = parse_api_game(api_game, continue_if_db=False)
@@ -179,6 +313,10 @@ while True:
         if match['match']['lobby_id'] is None:
             logger.info('No lobby id found for match.')
             continue
+
+        if match['has_pros']:
+            logger.info('{} : Match has pro players in it'.format(match['match']['lobby_id']))
+            livegames.append(match)
 
         if match['is_in_db']:
             logger.info('{} : Match already in db'.format(match['match']['lobby_id']))
@@ -194,7 +332,6 @@ while True:
         else:
             logger.info('{} : Found server_steam_id {}'.format(match['match']['lobby_id'],match['match']['server_steam_id']))
 
-
         if match['match']['match_id'] is None:
             logger.info('{} : No match id found'.format(match['match']['lobby_id']))
             continue
@@ -206,7 +343,6 @@ while True:
 
         account_ids = [p['player']['account_id'] for p in match['match']['players']]
         hero_ids = [p['player']['hero_id'] for p in match['match']['players']]
-
 
         for player in match['match']['players']:
 
@@ -240,6 +376,16 @@ while True:
         db.session.add(match_obj)
         db.session.commit()
 
+    logger.info('Updated. Caching live games now.')
 
-    logger.info('Updated. Waiting {} seconds'.format(t_wait))
+
+    # env = Environment(loader=FileSystemLoader('templates'))
+    # template = env.get_template('livegames.html')
+    # output_from_parsed_template = template.render(live=livegames)
+    # to save the results
+    # print(output_from_parsed_template)
+    with open("cached_livegames.json", "w") as fh:
+        json.dump(livegames, fh, indent=4)
+
+    logger.info('Cached. Waiting {} seconds'.format(t_wait))
     time.sleep(t_wait)

@@ -11,15 +11,25 @@ body{
 
 #header {
     height:100px;
+    margin-left:20px;
+    padding-top:20px;
 }
  /* LIVE GAMES CSS */
 /*#######################*/
 #left {
     float:left;
-    width: 320px;
+    width: 300px;
     min-height:1000px;
     border-right:1px solid #4B5A5A;
+    margin-right:20px;
     /*overflow-y:scroll;*/
+}
+#right {
+    /*float:right;*/
+    width: auto;
+    overflow: hidden;
+    min-height:1000px;
+    /*border-left:1px solid #4B5A5A;*/
 }
 
 .live_game {
@@ -101,13 +111,7 @@ body{
     margin-bottom:20px;
 }
 
-#right {
-    /*float:right;*/
-    width: auto;
-    overflow: hidden;
-    min-height:1000px;
-    /*border-left:1px solid #4B5A5A;*/
-}
+
 
 .recent_match {
     background: #101413;
@@ -216,5 +220,5 @@ body{
 
 #footer {
     clear:both;
-    height:100px;
+    height:10px;
 }

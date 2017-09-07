@@ -8,10 +8,6 @@ api = dota2api.Initialise(API_KEY)
 import urllib
 import json
 
-#app = Flask(__name__)
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://{}'.format(DB)
-#app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 def get_match_from_db(match):
 
     try:
@@ -166,12 +162,6 @@ def get_live_pro_games():
 
     return show_games, offline
 
-# @app.route('/matches')
-# def matches():
-#     matches = Game.query.order_by(Game.activate_time.desc()).limit(20).all()
-#     processed_matches = [get_match_from_db(match) for match in matches]
-#
-#     return render_template('index.html', games = processed_matches, title='Matches')
 
 @app.route('/player/<pname>')
 def player(pname):
@@ -186,13 +176,6 @@ def player(pname):
     }
 
     return render_template('ui.html', offline=offline, live=live_games, matches=processed_matches, meta = meta)
-
-# @app.route('/pros/<num>')
-# def pros(num):
-#     matches = Game.query.order_by(Game.activate_time.desc()).all()
-#     processed_matches = [get_match_from_db(match) for match in matches]
-#     processed_matches = [b for b in processed_matches if b['pros_count'] >= int(num)]
-#     return render_template('index.html', games = processed_matches, title='Pros')
 
 @app.route('/')
 def live():

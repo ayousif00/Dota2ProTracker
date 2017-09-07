@@ -7,6 +7,7 @@ import pprint
 api = dota2api.Initialise(API_KEY)
 import urllib
 import json
+import time
 
 def get_match_from_db(match):
 
@@ -67,6 +68,14 @@ def get_match_from_db(match):
 
 
 def get_match_live_stats(steamid):
+    '''
+    Use server_steam_id to get realtime stats for the sidebar.
+
+    Sometimes this fails on the first try so we give it 3 attempts.
+    '''
+    if steamid is None:
+        return None
+
     url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
     attempts = 0
     while attempts < 3:
@@ -77,30 +86,47 @@ def get_match_live_stats(steamid):
         except:
             #logger.warning('Failed attempt #{} to get match id from server_steam_id {}'.format(attempts+1, steamid))
             attempts += 1
-            #time.sleep(1)
+            time.sleep(1)
     return None
 
 
 def get_live_pro_games():
-    top_live_games = api.get_top_live_games()
+
+    '''
+
+    Things that can go wrong:
+    - no 'game_list
+
+    :return:
+    '''
+
+    top_live_matches = api.get_top_live_games()
     identity_ids = [identity.account_id for identity in Identity.query.all()]
 
     try:
-        game_list = top_live_games['game_list']
+        match_list = top_live_matches['game_list']
     except:
         return [], identity_ids
 
 
     show_games = []
 
-    for game in game_list:
-        player_ids = [p['account_id'] for p in game['players']]
-        if not set(player_ids).isdisjoint(identity_ids):
+    for match in match_list:
+        try:
+            player_ids = [p['account_id'] for p in match['players']]
+        except:
+            continue
 
-            show_games.append(game)
+        # Checking whether the match contains any known pros
+        if not set(player_ids).isdisjoint(identity_ids):
+            show_games.append(match)
 
     for i, match in enumerate(show_games):
-        server_steam_id = match['server_steam_id']
+        try:
+            server_steam_id = match['server_steam_id']
+        except:
+            server_steam_id = None
+
         live_stats = get_match_live_stats(server_steam_id)
         if live_stats is None:
             continue
@@ -111,9 +137,27 @@ def get_live_pro_games():
         for pro in pros_in_game:
             name = Identity.query.filter_by(account_id = pro).first().identity
             identity_ids.remove(pro)
-            for team in live_stats['teams']:
-                for player in team['players']:
-                    if player['accountid'] == int(pro):
+
+            try:
+                teams = live_stats['teams']
+            except:
+                continue
+
+            for team in teams:
+
+                try:
+                    players = team['players']
+                except:
+                    continue
+
+                for player in players:
+
+                    try:
+                        account_id = player['accountid']
+                    except:
+                        continue
+
+                    if account_id == int(pro):
 
                         try:
                             hero_name = Hero.query.filter_by(hero_id = player['heroid']).first().localized_name
@@ -189,6 +233,7 @@ def live():
     }
 
     return render_template('ui.html', meta=meta, offline = offline, live = live_games, matches = processed_matches)
+    # return render_template('ui.html', meta=meta, offline = offline, live = [], matches = processed_matches)
 
 if __name__ == '__main__':
     app.run(host = HOST, threaded = True)

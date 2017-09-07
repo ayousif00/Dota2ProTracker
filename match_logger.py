@@ -82,13 +82,18 @@ while True:
 
     api_games = get_top_live_games()
     if api_games is None:
+        # Sometimes getting top live games from the api just fails, so we try againa fter a 5 second break
         time.sleep(5)
         continue
 
     for api_game in api_games:
 
-        server_steam_id = api_game['server_steam_id']
-        lobby_id = api_game['lobby_id']
+        try:
+            server_steam_id = api_game['server_steam_id']
+            lobby_id = api_game['lobby_id']
+        except:
+            logger.warning('Could not find server_steam_id or lobby_id for this match.')
+            continue
 
         # Use lobby_id to check if game is already in the database
         if Game.query.filter_by(lobby_id=lobby_id).first() is not None:
@@ -106,29 +111,59 @@ while True:
         match_id = get_matchid(server_steam_id)
 
         if match_id is None:
+            # If we have not found the match_id it's because the API call to GetRealtimeStats failed
+            # In this case we don't save the game to the database and hope that we will find the match_id
+            # the next time.
             logger.warning('{} : No match id found for server_steam_id {}'.format(lobby_id, server_steam_id))
-            match_id = 0
+            continue
+
         else:
             logger.info('{} : Found match id: {}'.format(lobby_id, match_id))
 
         # Check for players whether they are in the database or not
-        for player in api_game['players']:
-            if Player.query.filter_by(account_id = player['account_id']).first() is None:
-                logger.info('{}: Found new account id: {}'.format(lobby_id, player['account_id']))
+        try:
+            players = api_game['players']
+        except:
+            logger.warning('{}: could not find players in api_game'.format(lobby_id))
+            continue
+
+
+        player_list = []
+        for player in players:
+
+            try:
+                account_id = player['account_id']
+            except:
+                logger.warning('{}: could not find account_id in player'.format(lobby_id))
+                continue
+
+            if Player.query.filter_by(account_id = account_id).first() is None:
+                logger.info('{}: Found new account id: {}'.format(lobby_id, account_id))
                 try:
                     player_name, player_steam_id = get_player_info(player['account_id'])
                 except:
-                    player_name, player_steam_id = 'Unknown', 0
                     logger.warning('{}: Could not identify account id {}'.format(lobby_id, player['account_id']))
+                    continue
+                    # player_name, player_steam_id = 'Unknown', 0
 
                 p = Player(
                     name = player_name,
-                    account_id = player['account_id'],
+                    account_id = account_id,
                     steam_id = player_steam_id
                 )
                 db.session.add(p)
 
-        players_list = [player['account_id'] for player in api_game['players']]
+            player_list.append(account_id)
+
+
+        # players_list = [player['account_id'] for player in api_game['players']]
+        # print (player_list)
+        if len(player_list) < 10:
+            logger.warning('{}: Incomplete player list, not adding game to DB.'.format(lobby_id))
+            continue
+
+        hero_list = [player['hero_id'] for player in api_game['players']]
+
 
         new_game = Game(
                 mmr = api_game['average_mmr'],
@@ -136,15 +171,11 @@ while True:
                 match_id = int(match_id),
                 lobby_id = int(lobby_id),
                 activate_time = api_game['activate_time'],
-                players = str(players_list),
-                heroes = str([player['hero_id'] for player in api_game['players']])
+                players = str(player_list),
+                heroes = str(hero_list)
         )
-
-
         db.session.add(new_game)
         db.session.commit()
-
-        #log(new_game)
 
 
     logger.info('Updated. Waiting {} seconds'.format(t_wait))

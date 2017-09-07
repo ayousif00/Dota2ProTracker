@@ -26,30 +26,46 @@ def log(game):
     logger.info('{} : added - MMR={}, match_id={}'.format(game['lobby_id'],game['mmr'],game['match_id']))
 
 
-def get_matchid(steamid):
-    url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
+# def get_matchid(steamid):
+#     url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
+#     attempts = 0
+#     while attempts < 3:
+#         try:
+#             data = urllib.request.urlopen(url).read().decode()
+#             data = json.loads(data)
+#             mid = data['match']['matchid']
+#             return mid
+#         except:
+#             logger.warning('Failed attempt #{} to get match id from server_steam_id {}'.format(attempts+1, steamid))
+#             attempts += 1
+#             time.sleep(1)
+#     return None
+
+def get_match_id(server_steam_id, max_attempts = 3, sleep = 1):
+    url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY, server_steam_id)
+    # print (url)
     attempts = 0
-    while attempts < 3:
+    while attempts < max_attempts:
         try:
             data = urllib.request.urlopen(url).read().decode()
             data = json.loads(data)
             mid = data['match']['matchid']
-            return mid
+            return int(mid)
         except:
-            logger.warning('Failed attempt #{} to get match id from server_steam_id {}'.format(attempts+1, steamid))
             attempts += 1
-            time.sleep(1)
+            time.sleep(sleep)
     return None
 
 def get_player_info(id):
-    if type(id) is str:
-        id = int(id)
+    try:
+        player = api.get_player_summaries(id)['players'][0]
+        name = player['personaname']
+        steam_id = player['steamid']
+    except:
+        name = None
+        steam_id = None
 
-    player = api.get_player_summaries(id)['players'][0]
-    name = player['personaname']
-    steamid = player['steamid']
-
-    return name, steamid
+    return name, steam_id
 
 
 def load(name):
@@ -57,9 +73,20 @@ def load(name):
         return json.load(fp)
 
 
-def ten_heros_picked(game):
+
+def number_heroes_picked(api_game):
     try:
-        heroes = [player['hero_id'] for player in game['players']]
+        heroes = [player['hero_id'] for player in api_game['players']]
+        heroes = set(heroes)
+        if 0 in heroes:
+            heroes.remove(0)
+        return len(heroes)
+    except:
+        return 0
+
+def ten_heros_picked(api_game):
+    try:
+        heroes = [player['hero_id'] for player in api_game['players']]
     except:
         return False
 
@@ -78,6 +105,63 @@ def ten_heros_picked(game):
 
 t_wait = 60
 
+def parse_api_game(api_game, continue_if_db = True):
+
+    if not hasattr(api_game, 'get'):
+        return None
+
+    lobby_id = api_game.get('lobby_id')
+    server_steam_id  = api_game.get('server_steam_id')
+    players = api_game.get('players', [])
+    hero_ids = [player.get('hero_id', 0) for player in players]
+
+    match = {
+        'is_in_db' : False,
+        'number_heroes_picked' : number_heroes_picked(api_game),
+        'match' : {
+            'average_mmr' : api_game.get('average_mmr', 0),
+            'server_steam_id': server_steam_id,
+            'lobby_id': lobby_id,
+            'match_id': None,
+            'activate_time' : api_game.get('activate_time', 0),
+            'players' : [],
+            'heroes' : [],
+        }
+
+    }
+
+    # Use lobby_id to check if game is already in the database
+    if Game.query.filter_by(lobby_id=lobby_id).first() is not None:
+        match['is_in_db'] = True
+        if not continue_if_db:
+            return match
+
+    match['match']['match_id'] = get_match_id(server_steam_id, 3, 0)
+    # Check for players whether they are in the database or not
+
+    if players is not None:
+        for player in players:
+            account_id = player.get('account_id')
+            hero_id = player.get('hero_id', 0)
+            player_name, player_steam_id = get_player_info(account_id)
+            p = {
+                'is_in_db' : False,
+                'player' : {
+                    'name': player_name,
+                    'account_id': account_id,
+                    'steam_id': player_steam_id,
+                    'hero_id' : hero_id,
+                }
+            }
+            if Player.query.filter_by(account_id=account_id).first() is not None:
+                p['is_in_db'] = True
+
+            match['match']['players'].append(p)
+
+    return match
+
+
+
 while True:
 
     api_games = get_top_live_games()
@@ -88,93 +172,72 @@ while True:
 
     for api_game in api_games:
 
-        try:
-            server_steam_id = api_game['server_steam_id']
-            lobby_id = api_game['lobby_id']
-        except:
-            logger.warning('Could not find server_steam_id or lobby_id for this match.')
+        match = parse_api_game(api_game, continue_if_db=False)
+        if match is None:
             continue
 
-        # Use lobby_id to check if game is already in the database
-        if Game.query.filter_by(lobby_id=lobby_id).first() is not None:
+        if match['match']['lobby_id'] is None:
+            logger.info('No lobby id found for match.')
             continue
 
-        # We wait until the draft has finished before adding a match to the database
-        if not ten_heros_picked(api_game):
-            logger.info('{} : Still drafting'.format(lobby_id))
+        if match['is_in_db']:
+            logger.info('{} : Match already in db'.format(match['match']['lobby_id']))
             continue
 
-
-        logger.info('{} : adding...'.format(lobby_id))
-
-        # Separate API call to receive match_id as it is not provided by GetTopLiveGames
-        match_id = get_matchid(server_steam_id)
-
-        if match_id is None:
-            # If we have not found the match_id it's because the API call to GetRealtimeStats failed
-            # In this case we don't save the game to the database and hope that we will find the match_id
-            # the next time.
-            logger.warning('{} : No match id found for server_steam_id {}'.format(lobby_id, server_steam_id))
+        if match['number_heroes_picked'] < 10:
+            logger.info('{} : Still drafting.'.format(match['match']['lobby_id']))
             continue
 
+        if match['match']['server_steam_id'] is None:
+            logger.info('{} : No steam id found'.format(match['match']['lobby_id']))
+            continue
         else:
-            logger.info('{} : Found match id: {}'.format(lobby_id, match_id))
+            logger.info('{} : Found server_steam_id {}'.format(match['match']['lobby_id'],match['match']['server_steam_id']))
 
-        # Check for players whether they are in the database or not
-        try:
-            players = api_game['players']
-        except:
-            logger.warning('{}: could not find players in api_game'.format(lobby_id))
+
+        if match['match']['match_id'] is None:
+            logger.info('{} : No match id found'.format(match['match']['lobby_id']))
             continue
+        else:
+            logger.info('{} : Found match_id {}'.format(match['match']['lobby_id'],match['match']['match_id']))
 
 
-        player_list = []
-        for player in players:
+        # At this point hopefully everything we would like to add does exist.
 
-            try:
-                account_id = player['account_id']
-            except:
-                logger.warning('{}: could not find account_id in player'.format(lobby_id))
+        account_ids = [p['player']['account_id'] for p in match['match']['players']]
+        hero_ids = [p['player']['hero_id'] for p in match['match']['players']]
+
+
+        for player in match['match']['players']:
+
+            if player['is_in_db']:
                 continue
 
-            if Player.query.filter_by(account_id = account_id).first() is None:
-                logger.info('{}: Found new account id: {}'.format(lobby_id, account_id))
-                try:
-                    player_name, player_steam_id = get_player_info(player['account_id'])
-                except:
-                    logger.warning('{}: Could not identify account id {}'.format(lobby_id, player['account_id']))
-                    continue
-                    # player_name, player_steam_id = 'Unknown', 0
+            logger.info('{} : Adding player {} ({}) '.format(
+                match['match']['lobby_id'],
+                player['player']['name'],
+                player['player']['account_id'])
+            )
 
-                p = Player(
-                    name = player_name,
-                    account_id = account_id,
-                    steam_id = player_steam_id
-                )
-                db.session.add(p)
-
-            player_list.append(account_id)
+            player_obj = Player(
+                name = player['player']['name'],
+                account_id = player['player']['account_id'],
+                steam_id = player['player']['steam_id'],
+            )
+            db.session.add(player_obj)
 
 
-        # players_list = [player['account_id'] for player in api_game['players']]
-        # print (player_list)
-        if len(player_list) < 10:
-            logger.warning('{}: Incomplete player list, not adding game to DB.'.format(lobby_id))
-            continue
-
-        hero_list = [player['hero_id'] for player in api_game['players']]
-
-
-        new_game = Game(
-                mmr = api_game['average_mmr'],
-                server_steam_id = int(server_steam_id),
-                match_id = int(match_id),
-                lobby_id = int(lobby_id),
-                activate_time = api_game['activate_time'],
-                players = str(player_list),
-                heroes = str(hero_list)
+        match_obj = Game(
+            mmr = match['match']['average_mmr'],
+            server_steam_id = match['match']['server_steam_id'],
+            match_id = match['match']['match_id'],
+            lobby_id = match['match']['lobby_id'],
+            activate_time=match['match']['activate_time'],
+            players = str(account_ids),
+            heroes = str(hero_ids),
         )
-        db.session.add(new_game)
+
+        db.session.add(match_obj)
         db.session.commit()
 
 

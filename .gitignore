@@ -3,6 +3,7 @@ config.py
 __pycache__
 db/database.db
 config.py
+*.json
 json
 json_to_db.py
 todo.txt

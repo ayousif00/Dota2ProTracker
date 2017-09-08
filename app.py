@@ -91,15 +91,6 @@ def get_match_live_stats(steamid):
 
 
 def get_live_pro_games():
-
-    '''
-
-    Things that can go wrong:
-    - no 'game_list
-
-    :return:
-    '''
-
     top_live_matches = api.get_top_live_games()
     identity_ids = [identity.account_id for identity in Identity.query.all()]
 
@@ -202,9 +193,6 @@ def get_live_pro_games():
         )
     offline = sorted(offline, key=lambda pro: pro['identity'])
 
-    # pprint.pprint(show_games)
-
-
     return show_games, offline
 
 
@@ -230,7 +218,6 @@ def get_offline_players(live_games):
 
 @app.route('/player/<pname>')
 def player(pname):
-    # live_games, offline = get_live_pro_games()
     account_id = Identity.query.filter_by(identity = pname).first().account_id
     matches = Game.query.filter(Game.players.contains(str(account_id))).order_by(Game.activate_time.desc()).all()
     processed_matches = [get_match_from_db(match) for match in matches]
@@ -244,12 +231,10 @@ def player(pname):
         live_games = json.load(fh)
 
     offline = get_offline_players(live_games)
-
     return render_template('ui.html', offline=offline, live=live_games, matches=processed_matches, meta = meta)
 
 @app.route('/')
 def live():
-    #live_games, offline = get_live_pro_games()
     matches = Game.query.order_by(Game.activate_time.desc()).limit(20).all()
     processed_matches = [get_match_from_db(match) for match in matches]
 
@@ -264,9 +249,6 @@ def live():
     offline = get_offline_players(live_games)
 
     return render_template('ui.html', meta=meta, offline = offline, live = live_games, matches = processed_matches)
-
-    # return render_template('ui.html', meta=meta, offline = offline, live = live_games, matches = processed_matches)
-    # return render_template('ui.html', meta=meta, offline = offline, live = [], matches = processed_matches)
 
 if __name__ == '__main__':
     app.run(host = HOST, threaded = True)

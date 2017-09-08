@@ -22,29 +22,12 @@ def get_top_live_games():
     except:
         return None
 
-
 def log(game):
     logger.info('{} : added - MMR={}, match_id={}'.format(game['lobby_id'],game['mmr'],game['match_id']))
 
 
-# def get_matchid(steamid):
-#     url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
-#     attempts = 0
-#     while attempts < 3:
-#         try:
-#             data = urllib.request.urlopen(url).read().decode()
-#             data = json.loads(data)
-#             mid = data['match']['matchid']
-#             return mid
-#         except:
-#             logger.warning('Failed attempt #{} to get match id from server_steam_id {}'.format(attempts+1, steamid))
-#             attempts += 1
-#             time.sleep(1)
-#     return None
-
 def get_match_id(server_steam_id, max_attempts = 3, sleep = 1):
     url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY, server_steam_id)
-    # print (url)
     attempts = 0
     while attempts < max_attempts:
         try:
@@ -100,9 +83,6 @@ def ten_heros_picked(api_game):
     else:
         return True
 
-#Games = check_games(Games)
-
-#ids = {str(v): k for k, v in identities.items()}
 
 t_wait = 30
 
@@ -116,7 +96,6 @@ def get_match_live_stats(steamid, max_attempts = 3, sleep = 0):
         return None
 
 
-    # print ('Calling get_match_live_stats')
     url = 'https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key={}&server_steam_id={}'.format(API_KEY,steamid)
     attempts = 0
     while attempts < max_attempts:
@@ -165,10 +144,8 @@ def get_pro_stats_from_live_game(live_stats, account_id):
 
 
 def pros_in_match(match, identity_ids):
-    # print (match)
     players = match.get('players', [])
     account_ids = [p['account_id'] for p in players]
-    # print (players)
     pro_account_ids = set(account_ids) & set(identity_ids)
     return pro_account_ids
 
@@ -182,7 +159,7 @@ def formatted_game_time(game_time):
         fgt = "%02d:%02d" % (m, s)
     return fgt
 
-def parse_api_game(api_game, continue_if_db = True):
+def parse_api_game(api_game, continue_if_db = True, continue_if_no_pro = True):
 
     if not hasattr(api_game, 'get'):
         return None
@@ -211,15 +188,18 @@ def parse_api_game(api_game, continue_if_db = True):
             'dire_score' : api_game.get('dire_score', 0),
             'game_time' : formatted_game_time(api_game.get('game_time', 0))
         }
-
     }
 
     # Quick check if game has pros
     pro_account_ids = pros_in_match(api_game, identity_ids)
-    # print (pro_account_ids)
     has_pros = len(pro_account_ids) > 0
-
     match['has_pros'] = has_pros
+    if not has_pros:
+        if not continue_if_no_pro:
+            return match
+
+
+
 
     # Use lobby_id to check if game is already in the database.
     # If the game is already in the database we only continue
@@ -243,7 +223,6 @@ def parse_api_game(api_game, continue_if_db = True):
             #####
             if account_id in pro_account_ids:
                 # player is a pro
-                #match['has_pros'] = True
                 is_pro = True
                 identity = Identity.query.filter_by(account_id = account_id).first().identity
                 # ToDo: Cache identities before loop
@@ -256,7 +235,6 @@ def parse_api_game(api_game, continue_if_db = True):
                     live_stats = match['live_stats']
 
                 player_live_stats = get_pro_stats_from_live_game(live_stats, account_id)
-                # print (player_live_stats)
                 # ToDo: instead of doing this for every player, do it once and use results here
                 # because we have nested loops in get_pro_stats_...
             #####
@@ -298,7 +276,7 @@ while True:
 
     api_games = get_top_live_games()
     if api_games is None:
-        # Sometimes getting top live games from the api just fails, so we try againa fter a 5 second break
+        # Sometimes getting top live games from the api just fails, so we try again after a 5 second break
         time.sleep(5)
         continue
 
@@ -377,13 +355,6 @@ while True:
         db.session.commit()
 
     logger.info('Updated. Caching live games now.')
-
-
-    # env = Environment(loader=FileSystemLoader('templates'))
-    # template = env.get_template('livegames.html')
-    # output_from_parsed_template = template.render(live=livegames)
-    # to save the results
-    # print(output_from_parsed_template)
     with open("cached_livegames.json", "w") as fh:
         json.dump(livegames, fh, indent=4)
 

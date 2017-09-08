@@ -1,9 +1,8 @@
 config.py
 .idea
 __pycache__
-db
-db/*
-db\database.db
+db/database.db
+config.py
 json
 json_to_db.py
 todo.txt

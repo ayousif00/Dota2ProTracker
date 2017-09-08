@@ -14,7 +14,7 @@ Tested with Python 3.
 
 ## Usage
 
-Run *create_db.py* to create the database. However, a newly created database will be empty and therefore it will not contain hero information like hero avatar urls which will result in an incomplete display of matches. This repository comes with a database that contains players, heroes and matches so you don't need to create a new database.
+Run *create_db.py* to create the database. However, a newly created database will be empty and therefore it will not contain hero information like hero avatar urls which will result in an incomplete display of matches. This repository comes with a database (*db/database.template.db*, rename this to *db/database.db*) that contains players, heroes and some matches so you don't need to create a new database.
 
 Run *match_logger.py* to fetch new high MMR games and add them to the database.
 

@@ -100,6 +100,11 @@ body{
     width: 16px;
 }
 
+.woops {
+    margin-left:20px;
+    font-size: 14px;
+    color:#F2F2F2;
+}
 
 /*Recent games CSS*/
 
@@ -180,12 +185,14 @@ body{
 }
 
 .recent_game_player .special {
-    color:#6bc5e5;
+    /*color:#6bc5e5;*/
+    color:#E5716A;
     font-weight: bold;
 }
 
 .recent_game_playername a {
-    color:#6bc5e5;
+    /*color:#6bc5e5;*/
+    color:#E5716A;
     text-decoration: none;
     font-weight: bold;
 }
